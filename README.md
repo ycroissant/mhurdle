@@ -25,9 +25,15 @@ because:
 
 `mhurdle` is  on `CRAN`.
 
-For the development version, use
 
-```{r, eval = FALSE}
- install.packages("devtools")
+```
+install.packages("mhurdle")
+```
+
+
+For the development version, use 
+
+```
+install.packages("devtools")
 devtools::install_github("ycroissant/mhurdle")
 ```
