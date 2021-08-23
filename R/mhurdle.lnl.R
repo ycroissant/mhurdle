@@ -1,5 +1,6 @@
 mhurdle.lnl <- function(param, X1, X2, X3, X4, y, gradient = FALSE,
-                        fitted = FALSE, dist = NULL, corr = FALSE, robust = TRUE){
+                        fitted = FALSE, dist = NULL, corr = FALSE,
+                        robust = TRUE){
 #    otime <- proc.time()
     if (robust){
         frho <- function(x) atan(x) * 2 / pi
@@ -18,8 +19,8 @@ mhurdle.lnl <- function(param, X1, X2, X3, X4, y, gradient = FALSE,
         gsd <- function(x) 1
     }
 
-    N <- length(y)
     
+    N <- length(y)
     #  dummies for the existing equations hi and number of
     #  coefficients Ki
     h1 <- ! is.null(X1) ;  K1 <- ifelse(h1, ncol(X1), 0)
@@ -80,7 +81,6 @@ mhurdle.lnl <- function(param, X1, X2, X3, X4, y, gradient = FALSE,
         beta4 <- param[(K1 + K2 + K3 + 2):(K1 + K2 + K3 + K4 + 1)]
         bX4 <- as.numeric(crossprod(t(X4), beta4))
         pbX4 <- pnorm(bX4)
-        sigma <- sd * pbX4
     }
     else{
         sigma <- sd
@@ -266,14 +266,13 @@ mhurdle.lnl <- function(param, X1, X2, X3, X4, y, gradient = FALSE,
                             ( - Pr13$d1 * rho[1] * resid / sigma ^ 2 / sqrt(1 - rho[1] ^ 2) -
                                  Pr13$d2 * rho[3] * resid / sigma ^ 2 /
                                      sqrt(1 - rho[3] ^ 2))  / Pr13$f -
-                                         PIs / PI)
+                            PIs / PI)
         gradi <- cbind(gradi, sigma = lnL.sigma * pbX4  * gradientsd)
         
         # derivatives respective to beta4
-        if (!is.null(X4)){
+        if (! is.null(X4)){
             gradi <- cbind(gradi,  lnL.sigma * sd * dnorm(bX4) * X4)
         }
-        
         # derivatives respective to rho
         if (corr){
             if (h1 & ! h3){

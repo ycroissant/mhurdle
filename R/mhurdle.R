@@ -170,7 +170,7 @@ mhurdle <- function(formula, data, subset, weights, na.action,
     h3 <- ! is.null(X3)
     
     #  2. One equation models
-    if (! h1 && ! h3){
+    if (! h1 && ! h3 && is.null(X4)){
         result <- onequation.mhurdle(X2, y, dist)
         result$naive <- NULL#naive
         result$call <- cl
