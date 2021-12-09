@@ -2,8 +2,10 @@
 
 boxcoxreg <- function(formula, data, subset, weights, na.action,
                       model = TRUE, y = FALSE, x = FALSE,
-                      lambda = 0.5, alpha = 0.5, start = NULL,
-                      truncated = TRUE, check.gradient = FALSE, robust = TRUE, ...){
+                      start = NULL,
+                      truncated = TRUE,
+                      check_gradient = FALSE,
+                      robust = TRUE, ...){
     
     cl <- match.call()
     mf <- match.call(expand.dots = FALSE)
@@ -24,7 +26,9 @@ boxcoxreg <- function(formula, data, subset, weights, na.action,
     }
     
     ## process options
-    result <- boxcox.fit(X = X, y = Y, lambda = lambda, alpha = alpha, start = start, check.gradient = check.gradient, truncated = truncated, robust = robust, ...)
+    result <- boxcox.fit(X = X, y = Y, start = start,
+                         check_gradient = check_gradient,
+                         truncated = truncated, robust = robust, ...)
     result$call <- cl
     result$terms <- mt
     if(model) result$model <- mf
@@ -33,8 +37,7 @@ boxcoxreg <- function(formula, data, subset, weights, na.action,
     result
 }
 
-boxcox.fit <- function(X, y, lambda, alpha, start, check.gradient, truncated, robust,  ...){
-
+boxcox.fit <- function(X, y, start = NULL, check_gradient = FALSE, truncated, robust, ...){
     if (robust){
         fisigma <- function(x) log(x)
         fsigma <- function(x) exp(x)
@@ -55,7 +58,6 @@ boxcox.fit <- function(X, y, lambda, alpha, start, check.gradient, truncated, ro
         galpha <- function(x) 1
     }
 
-
     dots <- list(...)
     if (is.null(dots$method)) method <- "bfgs" else method <- dots$method
     if (is.null(dots$iterlim)) iterlim <- 100 else iterlim <- dots$iterlim
@@ -66,10 +68,13 @@ boxcox.fit <- function(X, y, lambda, alpha, start, check.gradient, truncated, ro
     on.exit(options(oldoptions))
     start.time <- proc.time()
 
-    f <- function(param)      ml.boxcox(param, X = X, y = y, gradient = FALSE, truncated = truncated, robust = robust)
-    g <- function(param) attr(ml.boxcox(param, X = X, y = y, gradient = TRUE,  truncated = truncated, robust = robust), "gradient")
+    f <- function(param)      boxcox.lnl(param, X = X, y = y, gradient = FALSE, truncated = truncated, robust = robust)
+    g <- function(param) attr(boxcox.lnl(param, X = X, y = y, gradient = TRUE,  truncated = truncated, robust = robust), "gradient")
 
+    start_length <- ncol(X) + 3
     if (is.null(start)){
+        lambda <- 0.5
+        alpha <- 0.5
         if (lambda != 0) Tyinit <- (y ^ lambda - 1) / lambda else Tyinit <- log(y)
         linmod <- lm.fit(X[y > 0, , drop = FALSE], Tyinit[y > 0])
         sigma <- sqrt(sum(linmod$residuals ^ 2) / length(Tyinit[y > 0]))
@@ -78,31 +83,17 @@ boxcox.fit <- function(X, y, lambda, alpha, start, check.gradient, truncated, ro
         start <- c(coef(linmod), sigma = sigma, lambda = lambda, alpha = alpha)
     }
     else{
-        start["alpha"] <- fialpha(start["alpha"])
-        start["sigma"] <- fisigma(start["sigma"])
+        if (length(start) != start_length) stop("the starting values vector has a wrong length")
+        start[length(start)] <- fialpha(start[length(start)])
+        start[length(start) - 3] <- fisigma(length(start) - 3)
     }
     
-    if (check.gradient){
-        f0 <-  ml.boxcox(start,  X = X, y = y, gradient = TRUE, truncated = truncated, robust = robust)
-        agrad <- apply(attr(f0, "gradient"), 2, sum)
-        ostart <- start
-        of <- sum(f(start))
-        ngrad <- c()
-        eps <- 1E-6
-        for (i in 1:length(start)){
-            start <- ostart
-            start[i] <- start[i] + eps
-            ngrad <- c(ngrad, (sum(f(start)) - of) / eps)
-        }
-        print(ostart)
-        print(cbind(ngrad, agrad))
-        start <- ostart
-        stop()
+    if (check_gradient){
+        fg <- function(x) boxcox.lnl(x,  X = X, y = y, gradient = TRUE, truncated = truncated, robust = robust)
+        compare_gradient(fg, start)
     }
-    
-    maxl <- maxLik(f,  g, start = start, method = method, finalHessian = "BHHH",
+    maxl <- maxLik(f, g, start = start, method = method, finalHessian = "BHHH",
                    iterlim = iterlim, print.level = print.level, fixed = fixed)
-    
     actPars <- activePar(maxl)
     grad.conv <- g(maxl$estimate)
 
@@ -176,8 +167,7 @@ boxcox.fit <- function(X, y, lambda, alpha, start, check.gradient, truncated, ro
     result
 }
 
-ml.boxcox <- function(param, X, y, gradient, truncated, robust){
-
+boxcox.lnl <- function(param, X, y, gradient, truncated, robust){
     if (robust){
         fsigma <- function(x) exp(x)
         gsigma <- function(x) exp(x)
@@ -193,7 +183,8 @@ ml.boxcox <- function(param, X, y, gradient, truncated, robust){
         galpha <- function(x) 1
     }
 
-
+    has_alpha <- (length(param) == ncol(X) + 3)
+    
     beta <- param[1:ncol(X)]
     
     sigma <- param[ncol(X) + 1]
@@ -201,8 +192,8 @@ ml.boxcox <- function(param, X, y, gradient, truncated, robust){
     sigma <- fsigma(sigma)
     
     lambda <- param[ncol(X) + 2]
-    
-    alpha <- param[ncol(X) + 3]
+    if (has_alpha) alpha <- param[ncol(X) + 3]
+    else alpha <- 0
     g.alpha <- galpha(alpha)
     alpha <- falpha(alpha)
     
@@ -251,7 +242,6 @@ ml.boxcox <- function(param, X, y, gradient, truncated, robust){
                 B2 <- myInf
                 B1.sigma <- B1.beta <- B1.alpha <- B1.lambda <- 0
                 B2.sigma <- B2.beta <- B2.alpha <- B2.lambda <- 0
-                
             }
         }
         else{
@@ -285,7 +275,8 @@ ml.boxcox <- function(param, X, y, gradient, truncated, robust){
             lnL.beta <-  resid / sigma ^ 2 - (OM2 * MU2 * B2.beta  - OM1 * MU1 * B1.beta)
             lnL.lambda <- log(y + alpha) - resid / sigma ^ 2 * T.lambda - (OM2 * MU2 * B2.lambda - OM1 * MU1 * B1.lambda)
             lnL.alpha <- (lambda - 1) / (y + alpha) - resid / sigma ^ 2 * T.alpha - (OM2 * MU2 * B2.alpha - OM1 * MU1 * B1.alpha)
-            gradi <- cbind(lnL.beta * X, lnL.sigma * g.sigma, lnL.lambda, lnL.alpha)
+            gradi <- cbind(lnL.beta * X, lnL.sigma * g.sigma, lnL.lambda)
+            if (has_alpha) gradi <- cbind(gradi, lnL.alpha * g.alpha)
             attr(lnL, "gradient") <- gradi
         }
     }
@@ -371,7 +362,9 @@ ml.boxcox <- function(param, X, y, gradient, truncated, robust){
             lnL.lambda <- lnL.lambda - LD.lambda
             lnL.alpha <-  lnL.alpha  - LD.alpha
 
-            gradi <- cbind(lnL.beta * X, lnL.sigma * g.sigma, lnL.lambda, lnL.alpha * g.alpha)
+            gradi <- cbind(lnL.beta * X, lnL.sigma * g.sigma, lnL.lambda)
+            if (has_alpha) gradi <- cbind(gradi, lnL.alpha * g.alpha)
+            attr(lnL, "gradient") <- gradi
             attr(lnL, "gradient") <- gradi
         }
     }

@@ -1,13 +1,13 @@
 Package: mhurdle
 Version: 1.2-0
-Date: 2021-06-09
+Date: 2021-12-09
 Title: Multiple Hurdle Tobit Models
 Authors@R: c(person("Yves", "Croissant", role = c("aut", "cre"), email = "yves.croissant@univ-reunion.fr"),
              person("Fabrizio", "Carlevaro", role = "aut", email = "fabrizio.carlevaro@unige.ch"),
              person("Stephane", "Hoareau", role = "aut", email = "sjlhoaro@univ-reunion.fr"))
 Depends: R (>= 2.10)
-Imports: Formula, truncreg, maxLik, survival, Rdpack
-Suggests: knitr, rmarkdown, lmtest, xtable, bookdown, texreg
+Imports: Formula, truncreg, maxLik, survival, Rdpack, prediction, margins, generics, numDeriv
+Suggests: knitr, rmarkdown, lmtest, xtable, bookdown, texreg, testthat
 Description: Estimation of models with zero left-censored variables.
              Null values may be caused by a selection process
 	     \insertCite{CRAGG/71}{mhurdle} <doi:10.2307/1909582>, insufficient resources
@@ -19,6 +19,6 @@ NeedsCompilation: yes
 License: GPL (>=2)
 Encoding: UTF-8
 URL: https://www.R-project.org
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 Roxygen: list(markdown = TRUE)
 RdMacros: Rdpack

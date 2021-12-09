@@ -1,7 +1,29 @@
+is_negative_definite <- function(x){
+    vls <- eigen(-x)$values
+    ifelse(all(vls > 0) & min(abs(vls)) > 1E-08, TRUE, FALSE)
+}
+
+compare_gradient <- function(f, start){
+    fs <- function(x) sum(as.numeric(f(x)))
+    fstart <- f(start)
+    ngrad <- numDeriv::grad(fs, start)
+    agrad <- apply(attr(fstart, "gradient"), 2, sum)
+    value <- fs(start)
+    parts <- attr(fstart, "parts")
+    grad <- data.frame(param = start,
+                       analytic = agrad,
+                       numerical = ngrad,
+                       rel_diff = abs(agrad - ngrad) / (agrad + ngrad) * 2)
+    return(list(value = value,
+                gradient = grad,
+                parts = parts))
+}
+
 
 log2 <- function(x) ifelse(x > 0,log(x), 0)
 
 mills <- function(x) exp(dnorm(x, log = TRUE) - pnorm(x, log.p = TRUE))
+dmills <- function(x) - mills(x) * (x + mills(x))
 
 # a function to construct block-diagonal matrix (can't remember from
 # which package it is borrowed)
@@ -71,187 +93,6 @@ print.est.stat <- function(x, ...){
 # relevant for distributions that admit negative values of y^*, namely
 # ln2, bc2, ihs and n
 
-onequation.mhurdle <- function(X2, y, dist = NULL){
-    if (dist %in% c("ln", "tn", "bc")) stop("the specified model doesn't allow zero observations")
-    if (dist == "n"){
-        # the tobit model, efficiently estimated using Survreg from
-        # the survival package
-        tobit <- survival::survreg(survival::Surv(y, y > 0, type = "left") ~ X2 - 1, dist = "gaussian")
-        beta <- coef(tobit)
-        bX <- as.numeric(crossprod(t(X2), beta))
-        resid <- y - bX
-        sigma <- tobit$scale
-        pmills <- mills(- bX / sigma)
-        gbeta <- - (y == 0) * mills(- bX / sigma) / sigma + (y > 0) * (y - bX) / sigma ^ 2
-        gsigma <- (y == 0) * mills(- bX / sigma) * bX / sigma ^ 2 +
-            (y > 0) * (- 1 / sigma + (y - bX) ^ 2 / sigma ^ 3)
-        gradi <- cbind(gbeta * X2, sigma = gsigma)
-        result <- list(coefficients = c(beta, sigma = sigma),
-                       vcov = solve(crossprod(gradi)),
-                       logLik = logLik(tobit),
-                       gradient = gradi,
-                       fitted = cbind(1 - pnorm(bX / sigma), bX + sigma * mills(bX / sigma)))
-    }
-    if (dist == "ln2"){
-        thelm <- lm(log(y + 1) ~ X2 - 1)
-        sigma <- summary(thelm)$sigma
-        beta <- coef(thelm)
-        start <- c(beta, sigma = sigma, alpha = 1)
-        ltobit.lnl <- function(param, fitted = FALSE){
-            beta <- param[1 : (length(param) - 2)]
-            sigma <- param[length(param) - 1]
-            alpha <- param[length(param)]
-            bX <- as.numeric(crossprod(t(X2), beta))
-            lnL <- (y == 0) * pnorm( (log(    alpha) - bX) / sigma, log.p = TRUE) +
-                (y > 0) * ( dnorm(   (log(y + alpha) - bX) / sigma, log   = TRUE) -
-                               log(y + alpha) - log(sigma)
-                           )
-            gbeta <- - (y == 0) * mills( (log(alpha) - bX) / sigma) / sigma +
-                (y > 0) * (log(y + alpha) - bX) / sigma ^ 2
-            gsigma <- - (y == 0) * mills( (log(alpha) - bX) / sigma) * (log(alpha) - bX) / sigma ^ 2 +
-                (y > 0) * ( - 1 / sigma + (log(alpha + y) - bX) ^ 2 / sigma ^ 3)
-            galpha <- (y == 0) * mills( (log(alpha) - bX) / sigma) / (alpha * sigma) -
-                (y > 0) * ( 1 / (y + alpha) + ( log(y + alpha) - bX) / (sigma ^ 2 * (y + alpha)))
-            attr(lnL, "gradient") <- cbind(gbeta * X2, gsigma, galpha)
-            if (fitted){
-                P0 <- pnorm( (log(alpha) - bX) / sigma)
-                Ep <- exp(bX + 0.5 * sigma ^ 2) * pnorm( (bX - log(alpha)) / sigma + sigma) / (1 - P0)
-                attr(lnL, "fitted") <- cbind(P0, Ep)
-            }
-            lnL
-        }
-        result <- maxLik::maxLik(ltobit.lnl, start = start, method = "bhhh", print.level = 0)
-        fitted <- attr(ltobit.lnl(coef(result), fitted = TRUE), "fitted")
-        result <- list(coefficients = coef(result),
-                       vcov = vcov(result),
-                       logLik = logLik(result),
-                       gradient = result$gradientObs,
-                       fitted = fitted)
-
-    }
-    if (dist == "bc2"){
-        result <- boxcox.fit(X2, y, lambda = 0, alpha = 1, robust = TRUE, start = NULL, check.gradient = FALSE, truncated = FALSE)
-    }
-
-    coef.names <- list(h1    = NULL,
-                       h2    = colnames(X2),
-                       h3    = NULL,
-                       sd    = "sd",
-                       h4    = NULL,
-                       corr  = NULL,
-                       tr    = NULL,
-                       pos   = NULL)
-    if (dist == "bc2") coef.names$tr <- "tr"
-    if (dist %in% c("bc2", "ln2")) coef.names$pos <- "pos"
-
-    
-    result <- list(coefficients = result$coefficients, 
-                   vcov = result$vcov,
-                   fitted.values = result$fitted,
-                   logLik = result$logLik,
-                   gradient = result$gradient,
-                   model = NULL,
-                   formula = NULL,
-                   coef.names = coef.names,
-                   call = NULL
-                   )
-    class(result) <- c("mhurdle","maxLik")
-    result
-
-    
-    return(result)
-}
-        
-
-# Compute the estimation of hurdle models in the cases where it can be
-# done using two independent estimations (a binomial logit model and a
-# normal/log-normal/truncated linear model). This is relevant for
-# uncorrelated models with selection
-
-seperate.mhurdle <- function(X1, X2, y, dist = NULL){
-    probit <- glm(y != 0 ~ X1 - 1, family = binomial(link = "probit"))
-    # Computation of the likelihood for zero observations
-    beta1 <- coef(probit)
-    bX1 <- as.numeric(crossprod(beta1, t(X1)))
-    mills1 <- mills(bX1)
-    mills1m <- mills(- bX1)
-    L.null <- (y == 0) * log(1 - pnorm(bX1))
-    gbX1 <- (y == 0) * (- mills1m) + (y != 0) * mills1
-    
-    # Computation of the likelihood for positive observations for log-normal distribution
-    if (dist %in% "ln"){
-        lin <- lm(log(y) ~ X2 - 1, subset = y != 0)
-        beta2 <- coef(lin)[1:ncol(X2)]
-        bX2 <- as.numeric(crossprod(beta2, t(X2)))
-        logy <- rep(0, length(y))
-        logy[y != 0] <- log(y[y != 0])
-        resid <- (logy - bX2)
-        df <- df.residual(lin)
-        np <- sum(y != 0)
-        scr <- sum(resid[y != 0] ^ 2)
-        sigma <- sqrt(scr / np)
-        L.pos <- (y != 0) * (pnorm(bX1, log.p = TRUE) + dnorm(resid / sigma, log = TRUE) -
-                                 log(sigma) - logy)
-        gbX2 <- (y != 0) * (resid / sigma ^ 2)
-        gsigma <- (y != 0) * (resid ^ 2 / sigma ^ 3 - 1 / sigma)
-        gradi <- cbind(gbX1 * X1, gbX2 * X2, as.numeric(gsigma))
-        dss <- - 3 * scr / sigma ^ 4 + sum(y != 0) / sigma ^ 2
-        vcov <- bdiag(vcov(probit), vcov(lin) / np * df, - 1 / dss)
-        coef <- c(coef(probit), coef(lin), sigma)
-        P0 <- pnorm(bX1)
-        E <- exp(bX2 + 0.5 * sigma ^ 2) / (1 - P0)
-        fitted <- cbind(zero = pnorm(bX1), pos = E)
-    }
-    else{
-        if (dist == "tn"){
-                          lin <- truncreg::truncreg(y ~ X2 - 1, subset = y != 0)
-                          lin$gradient <- lin$gradientObs
-                      }
-        if (dist == "bc"){
-            lin <- boxcoxreg(y ~ X2 - 1, subset = y != 0, alpha = 0, lambda = 0, fixed = "alpha", method = "bhhh", print.level = 0)
-            K <- length(coef(lin)) - 1
-            lin$vcov <- lin$vcov[1:K, 1:K]
-            lin$coefficients <- lin$coefficients[1:K]
-            lin$gradient <- lin$gradientObs[, 1:K]
-        }
-        bX2 <- as.numeric(crossprod(coef(lin)[1:ncol(X2)], t(X2)))
-        L.pos <- as.numeric(logLik(lin)) + sum( (y != 0) * (pnorm(bX1, log.p = TRUE)))
-        vcov <- bdiag(vcov(probit), vcov(lin))
-        coef <- c(coef(probit), coef(lin))
-        fit <- cbind(zero = bX1, pos = fitted(lin))
-        g2 <- matrix(0, nrow = length(y), ncol = ncol(lin$gradient))
-        g2[y != 0, ] <- lin$gradient
-        gradi <- cbind(gbX1 * X1, g2)
-        vcov <- bdiag(vcov(probit) , vcov(lin))
-        if (dist == "tn"){
-            P0 <- pnorm(bX1)
-            E <- (bX2 + mills(bX2)) / (1 - P0)
-            fitted <- cbind(zero = P0, pos = E)}
-        else fitted <- NULL
-    }
-    coef.names <- list(h1    = colnames(X1),
-                       h2    = colnames(X2),
-                       h3    = NULL,
-                       sd    = "sd",
-                       h4    = NULL,
-                       corr  = NULL,
-                       tr    = NULL,
-                       pos   = NULL)
-    if (dist == "bc") coef.names$tr <- "tr"
-    logLik <- structure(sum(L.null) + sum(L.pos), df = length(coef), nobs = length(y), class = "logLik")
-    result <- list(coefficients = coef, 
-                   vcov = vcov,
-                   fitted.values = fitted,
-                   logLik = logLik,
-                   gradient = gradi,
-                   model = NULL,
-                   formula = NULL,
-                   coef.names = coef.names,
-                   call = NULL
-                   )
-    class(result) <- c("mhurdle","maxLik")
-    result
-}
 
 # Compute the "naive" model, i.e. a model with no explanatory
 # variables.  Full version with correlation ; not used because
@@ -444,14 +285,15 @@ lnl.naive <- function(param, dist = c("ln", "tn", "n", "ln2"), moments,
 
 
 start.mhurdle <- function(X1, X2, X3, y, dist){
-    if (!is.null(X1)) beta1 <- coef(glm( (y != 0) ~ X1 - 1, family = binomial(link = 'probit'))) else beta1 <- NULL
-    if (!is.null(X3)) beta3 <- coef(glm( (y != 0) ~ X3 - 1, family = binomial(link = 'probit'))) else beta3 <- NULL
+    if (! is.null(X1)) beta1 <- coef(glm( (y != 0) ~ X1 - 1, family = binomial(link = 'probit'))) else beta1 <- NULL
+    if (! is.null(X3)) beta3 <- coef(glm( (y != 0) ~ X3 - 1, family = binomial(link = 'probit'))) else beta3 <- NULL
     if (dist == "n") lin <- lm(y ~ X2 - 1)
-    if (dist == "tn") lin <- truncreg::truncreg(y ~ X2 - 1, subset = y > 0)
-    if (dist == "ln") lin <- lm(y ~ X2 - 1, subset = y > 0)
+    if (dist == "tn") lin <- lm(y ~ X2 - 1, subset = y > 0); truncreg::truncreg(y ~ X2 - 1, subset = y > 0)
+    if (dist == "ln") lin <- lm(log(y) ~ X2 - 1, subset = y > 0)
     beta2 <- coef(lin)[1:ncol(X2)]
 #    beta2 <- coef(lin[1:ncol(X2)])#YC20171204 wrong parenthesis
-    if (dist %in% c("n", "ln")) sigma <- summary(lin)$sigma
-    else sigma <- coef(lin)[ncol(X2) + 1]
-    c(beta1, beta2, beta3, sigma)
+#    if (dist %in% c("n", "tn")) sigma <- summary(lin)$sigma
+#    else sigma <- coef(lin)[ncol(X2) + 1]
+    sigma <- summary(lin)$sigma
+    c(beta1, beta2, beta3, sigma = sigma)
 }

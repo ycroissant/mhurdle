@@ -9,6 +9,10 @@
 #'     update.mhurdle fitted.mhurdle effects.mhurdle
 #' @param newdata,data a \code{data.frame} for which the predictions
 #'     or the effectsshould be computed,
+#' @param what for the `predict` and the `effects` method, the kind of
+#'     prediction, one of `E` `Ep` and `p` (respectively for expected
+#'     values in the censored sample, expected values in the truncated
+#'     sample and probability of positive values),
 #' @param naive a boolean, it \code{TRUE}, the likelihood of the naive
 #'     model is returned,
 #' @param object,x an object of class \code{"mhurdle"},
@@ -98,7 +102,12 @@ vcov.mhurdle <- function(object,
   which <- match.arg(which)
   nm <- nm.mhurdle(object, which)
   sub <- sub.mhurdle(object, which)
-  result <- object$vcov
+  if (is_negative_definite(object$hessian)){
+      result <- solve(- object$hessian)
+  } else {
+      cat("the hessian is not negative definite, the outer product of the gradient is used\n")
+      result <- solve(crossprod(object$gradi))
+  }
   result <- result[sub, sub]
   if (is.matrix(result)) rownames(result) <- colnames(result) <- nm
   else names(result) <- nm
@@ -140,14 +149,14 @@ print.mhurdle <- function (x, digits = max(3, getOption("digits") - 2),
 summary.mhurdle <- function (object,...){
   b <- coef(object)
   std.err <- sqrt(diag(vcov(object)))
-  z <- b/std.err
-  p <- 2*(1-pnorm(abs(z)))
-  coefficients <- cbind(b,std.err,z,p)
-  colnames(coefficients) <- c("Estimate","Std. Error","t-value","Pr(>|t|)")
+  z <- b / std.err
+  p <- 2 * (1 - pnorm(abs(z)))
+  coefficients <- cbind(b, std.err, z, p)
+  colnames(coefficients) <- c("Estimate", "Std. Error", "t-value", "Pr(>|t|)")
   object$coefficients <- coefficients
   object$r.squared <- c(coefdet = rsq(object, type = "coefdet"),
                         lratio  = rsq(object, type = "lratio"))
-  class(object) <- c("summary.mhurdle","mhurdle")
+  class(object) <- c("summary.mhurdle", "mhurdle")
   return(object)
 }
 
@@ -220,36 +229,42 @@ fitted.mhurdle <- function(object, which = c("all", "zero", "positive"), mean = 
 #' @rdname mhurdle.methods
 #' @importFrom stats predict
 #' @export
-predict.mhurdle <- function(object, newdata = NULL, ...){
+predict.mhurdle <- function(object, newdata = NULL, what = c("E", "Ep", "p"), ...){
+    what <- match.arg(what)
     geomean <- attr(object$model, "geomean")
-    if (is.null(newdata)){
-        result <- fitted(object, ...)
-    }
+    cl <- object$call
+    if (is.null(newdata)) mf <- model.frame(object)
     else{
-        cl <- object$call
-        h2 <- ifelse(is.null(cl$h2), FALSE, TRUE)
-        dist <- ifelse(is.null(cl$dist), "ln", cl$dist)
-        if (dist == "ln" & h2) dist <- "ln2"
-        if (dist == "n" & ! h2) dist <- "tn"
-        if (dist == "bc" & h2) dist <- "bc2"
-        corr <- ifelse(is.null(cl$corr), FALSE, cl$corr)
-        robust <- FALSE
-        m <- model.frame(formula(object), newdata)
-        X1 <- model.matrix(formula(object), m, rhs = 1)
-        X2 <- model.matrix(formula(object), m, rhs = 2)
-        if (length(formula(object))[2] > 2) X3 <- model.matrix(formula(object), m, rhs = 3) else X3 <- NULL
-        if (length(formula(object))[2] == 4) X4 <- model.matrix(formula(object), m, rhs = 4) else X4 <- NULL
-        if (length(X3) == 0) X3 <- NULL
-        if (length(X4) == 0) X4 <- NULL
-        y <- model.response(m)
-        if (! is.null(geomean)) attr(y, "geomean") <- geomean
-        if (length(X1) == 0) X1 <- NULL
-        result <- attr(mhurdle.lnl(coef(object), X1 = X1, X2 = X2, X3 = X3, X4 = X4, y = y,
-                                   gradient = FALSE, fitted = TRUE, robust = FALSE,
-                                   dist = dist, corr = corr), "fitted")
+        mf <- model.frame(terms(object), newdata, xlev = object$xlevels)
     }
-    result
+    h2 <- ifelse(is.null(cl$h2) || ! cl$h2, FALSE, TRUE)
+    dist <- ifelse(is.null(cl$dist) || cl$dist == "ln", "ln", cl$dist)
+    if (dist == "ln" & h2) dist <- "ln2"
+    if (dist == "n" & ! h2) dist <- "tn"
+    if (dist == "bc" & h2) dist <- "bc2"
+    corr <- ifelse(is.null(cl$corr), FALSE, cl$corr)
+    robust <- FALSE
+#    m <- model.frame(object$formula, newdata)
+    X1 <- model.matrix(object$formula, mf, rhs = 1)
+    X2 <- model.matrix(object$formula, mf, rhs = 2)
+    if (length(object$formula)[2] > 2) X3 <- model.matrix(object$formula, mf, rhs = 3) else X3 <- NULL
+    if (length(object$formula)[2] == 4) X4 <- model.matrix(object$formula, mf, rhs = 4) else X4 <- NULL
+    if (length(X3) == 0) X3 <- NULL
+    if (length(X4) == 0) X4 <- NULL
+    y <- model.response(mf)
+        if (! is.null(geomean)) attr(y, "geomean") <- geomean
+    if (length(X1) == 0) X1 <- NULL
+    result <- attr(mhurdle.lnl(coef(object), X1 = X1, X2 = X2, X3 = X3, X4 = X4, y = y,
+                               gradient = FALSE, fitted = TRUE, robust = FALSE,
+                               dist = dist, corr = corr), "fitted")
+    result[, what]
 }
+
+
+
+
+
+
 
 ## a simple copy from mlogit. update with formula doesn't work
 ## otherwise ????
@@ -262,7 +277,7 @@ update.mhurdle <- function (object, new, ...){
     stop("need an object with call component")
   extras <- match.call(expand.dots = FALSE)$...
   if (!missing(new))
-    call$formula <- update(formula(object), new)
+    call$formula <- update(object$formula, new)
   if(length(extras) > 0) {
     existing <- !is.na(match(names(extras), names(call)))
     ## do these individually to allow NULL to remove entries.
@@ -380,7 +395,9 @@ nobs.mhurdle <- function(object, which = c("all", "null", "positive"), ...){
 #' @rdname mhurdle.methods
 #' @export
 #' @importFrom stats effects
-effects.mhurdle <- function(object, covariate = NULL, data = NULL, reflevel = NULL, mean = FALSE, ...){
+effects.mhurdle <- function(object, covariate = NULL, data = NULL, what = c("E", "Ep", "p"),
+                            reflevel = NULL, mean = FALSE, ...){
+    what <- match.arg(what)
     if (is.null(covariate)) stop("the name of a covariate should be indicated")
     if (is.null(data)) odata <- eval(object$call$data) else odata <- data
     eps <- 1E-04
@@ -389,8 +406,8 @@ effects.mhurdle <- function(object, covariate = NULL, data = NULL, reflevel = NU
     if (is.numeric(thecov)){
         step <- ifelse(is.integer(thecov), 1, eps)
         ndata[[covariate]] <- ndata[[covariate]] + step
-        ofitted <- predict(object, odata)
-        nfitted <- predict(object, ndata)
+        ofitted <- predict(object, odata, what = what)
+        nfitted <- predict(object, ndata, what = what)
         mfx <- (nfitted - ofitted) / step
         mfx[abs(mfx) < 1E-08] <- 0
         if (mean) mfx <- apply(mfx, 2, mean)
@@ -404,7 +421,7 @@ effects.mhurdle <- function(object, covariate = NULL, data = NULL, reflevel = NU
         nx <- vector(mode = "list", length = length(levs))
         nx <- lapply(levs, function(d){
             ndata[[covariate]] <- factor(d, levels = levels(thecov))
-            predict(object, ndata)
+            predict(object, ndata, what = what)
         }
         )
         zero <- sapply(nx, function(x) x[, 1])

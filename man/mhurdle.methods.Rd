@@ -54,7 +54,7 @@
 
 \method{fitted}{mhurdle}(object, which = c("all", "zero", "positive"), mean = FALSE, ...)
 
-\method{predict}{mhurdle}(object, newdata = NULL, ...)
+\method{predict}{mhurdle}(object, newdata = NULL, what = c("E", "Ep", "p"), ...)
 
 \method{update}{mhurdle}(object, new, ...)
 
@@ -64,6 +64,7 @@
   object,
   covariate = NULL,
   data = NULL,
+  what = c("E", "Ep", "p"),
   reflevel = NULL,
   mean = FALSE,
   ...
@@ -92,6 +93,11 @@ model is returned,}
 
 \item{newdata, data}{a \code{data.frame} for which the predictions
 or the effectsshould be computed,}
+
+\item{what}{for the \code{predict} and the \code{effects} method, the kind of
+prediction, one of \code{E} \code{Ep} and \code{p} (respectively for expected
+values in the censored sample, expected values in the truncated
+sample and probability of positive values),}
 
 \item{new}{an updated formula for the \code{update} method,}
 

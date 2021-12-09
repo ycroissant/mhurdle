@@ -16,7 +16,7 @@ mhurdle(
   scaled = TRUE,
   corr = FALSE,
   robust = TRUE,
-  check.grad = FALSE,
+  check_gradient = FALSE,
   ...
 )
 }
@@ -50,7 +50,7 @@ different equations are correlated or not,}
 \item{robust}{transformation of the structural parameters in order
 to avoid numerical problems,}
 
-\item{check.grad}{if \code{TRUE}, a matrix containing the analytical and
+\item{check_gradient}{if \code{TRUE}, a matrix containing the analytical and
 the numerical gradient for the starting values are returned,}
 
 \item{\dots}{further arguments.}
