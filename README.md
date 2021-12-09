@@ -20,16 +20,13 @@ because:
 `mhurdle` provides a set of tools to estimate (by maximum likelihood)
  and test (using especially vuong test) this generalized hurdle model.
 
-
 ## Installation
 
 `mhurdle` is  on `CRAN`.
 
-
 ```
 install.packages("mhurdle")
 ```
-
 
 For the development version, use 
 
