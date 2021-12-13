@@ -50,7 +50,7 @@ household,}
 }
 \source{
 Consumer Expenditure Survey (CE), program of the US Bureau of Labor
-Statistics \url{http://www.bls.gov/cex/}, interview survey.
+Statistics \url{https://www.bls.gov/cex/}, interview survey.
 }
 \description{
 a cross section from 2014

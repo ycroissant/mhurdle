@@ -54,7 +54,7 @@
 #' \item{miscexp}{,} \item{cashcont}{,} \item{insurance}{,} \item{shows}{,}
 #' \item{foodaway}{,} \item{vacations}{.} }
 #' @source Consumer Expenditure Survey (CE), program of the US Bureau of Labor
-#' Statistics \url{http://www.bls.gov/cex/}, interview survey.
+#' Statistics \url{https://www.bls.gov/cex/}, interview survey.
 #' @keywords datasets
 #' @importFrom Rdpack reprompt
 NULL

@@ -2,7 +2,7 @@ Package: mhurdle
 Version: 1.3-0
 Date: 2021-12-09
 Title: Multiple Hurdle Tobit Models
-Authors@R: c(person("Yves", "Croissant", role = c("aut", "cre"), email = "yves.croissant@univ-reunion.fr"),
+Authors@R: c(person("Yves", "Croissant", role = c("aut", "cre"), email = "yves.croissant@univ-reunion.fr", comment = c(ORCID = "0000-0002-4857-7736")),
              person("Fabrizio", "Carlevaro", role = "aut", email = "fabrizio.carlevaro@unige.ch"),
              person("Stephane", "Hoareau", role = "aut", email = "sjlhoaro@univ-reunion.fr"))
 Depends: R (>= 2.10)
@@ -10,10 +10,9 @@ Imports: Formula, truncreg, maxLik, survival, Rdpack, prediction, margins, gener
 Suggests: knitr, rmarkdown, lmtest, xtable, bookdown, texreg, testthat
 Description: Estimation of models with zero left-censored variables.
              Null values may be caused by a selection process
-	     \insertCite{CRAGG/71}{mhurdle} <doi:10.2307/1909582>, insufficient resources
-	     \insertCite{TOBIN/58}{mhurdle} <doi:10.2307/1907382> or infrequency of
-             purchase \insertCite{DEATO/IRISH/84}{mhurdle}
-             <doi:10.1016/0047-2727(84)90067-7>.
+	     Cragg (1971) <doi:10.2307/1909582>, insufficient resources
+	     Tobin (1958) <doi:10.2307/1907382> or infrequency of purchase
+	     Deaton and Irish (1984) <doi:10.1016/0047-2727(84)90067-7>.
 VignetteBuilder: knitr	     
 NeedsCompilation: yes	     
 License: GPL (>=2)
