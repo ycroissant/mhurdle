@@ -1,4 +1,4 @@
-gbdiag <- function(...){
+bdiag <- function(...){
   if (nargs() == 1)
     x <- as.list(...)
   else
@@ -90,7 +90,7 @@ ndvuongtest <- function(x, y, size = 0.05, pval = TRUE,
     fmodel <- x                    ;  gmodel <- y    
     hessian.f <- fmodel$hessian    ;  hessian.g <- gmodel$hessian
     # this version is uncorrect where ther
-    hessian.f <- - solve(vcov(fmodel))    ;  hessian.g <- - solve(vcov(gmodel))
+    hessian.f <- - solve(vcov(fmodel, eigentol = 1E-20))    ;  hessian.g <- - solve(vcov(gmodel, eigentol = 1E-20))
     grad.f <- fmodel$gradient      ;  grad.g <- gmodel$gradient
     
     N <- nrow(grad.f)

@@ -79,7 +79,7 @@ vuongtest <- function(x, y,
             f <- y
             g <- x
         }
-        nestedOK <- prod(names(coef(g)) %in% names(coef(f)))
+        nestedOK <- all(names(coef(g)) %in% names(coef(f)))
         if (! nestedOK || (length(coef(f)) == length(coef(g)) ))
             stop("the two models are not nested")
     }
