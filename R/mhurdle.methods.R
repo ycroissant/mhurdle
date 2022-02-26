@@ -410,7 +410,7 @@ effects.mhurdle <- function(object, covariate = NULL, data = NULL, what = c("E",
         nfitted <- predict(object, ndata, what = what)
         mfx <- (nfitted - ofitted) / step
         mfx[abs(mfx) < 1E-08] <- 0
-        if (mean) mfx <- apply(mfx, 2, mean)
+        if (mean) mfx <- mean(mfx)
     }
     if (is.factor(thecov)){
         levs <- levels(thecov)
@@ -418,22 +418,20 @@ effects.mhurdle <- function(object, covariate = NULL, data = NULL, what = c("E",
         else{
             if (! reflevel %in% levs) stop("undefined level")
         }
+        
         nx <- vector(mode = "list", length = length(levs))
         nx <- lapply(levs, function(d){
             ndata[[covariate]] <- factor(d, levels = levels(thecov))
             predict(object, ndata, what = what)
         }
         )
-        zero <- sapply(nx, function(x) x[, 1])
-        pos <- sapply(nx, function(x) x[, 2])
-        colnames(zero) <- colnames(pos) <- levs
-        zero <- zero - zero[, reflevel]
-        pos <- pos - pos[, reflevel]
-        zero <- zero[, - which(levs == reflevel)]
-        pos <- pos[, - which(levs == reflevel)]
-        mfx <- list(zero = zero, pos = pos)
+        nx <- as.matrix(as.data.frame(nx))
+        colnames(nx) <- levs
+        nx <- nx - nx[, reflevel]
+        mfx <- nx[, - which(levs == reflevel)]
         if (mean){
-            mfx <- sapply(mfx, apply, 2, mean)
+            if (is.matrix(mfx)) mfx <- sapply(mfx, apply, 2, mean)
+            else mfx <- mean(mfx)
         }
     }
     mfx
