@@ -98,7 +98,6 @@ one_equation_model <- function(X2, y, dist = NULL, start = NULL, check_gradient 
     if (dist == "bc2") coef.names$tr <- "tr"
     if (dist %in% c("bc2", "ln2")) coef.names$pos <- "pos"
 
-    
     result <- list(coefficients = result$coefficients, 
                    vcov = result$vcov,
                    fitted.values = result$fitted,
@@ -150,8 +149,13 @@ two_parts_model <- function(X1, X2, y, dist = NULL, start = NULL, check_gradient
         lnL_beta <- resid / sigma ^ 2
         lnL_sigma <- resid ^ 2 / sigma ^ 3 - 1 / sigma
         attr(lnL, "gradient") <- cbind(lnL_beta * X2, sigma = lnL_sigma) * (y > 0)
-        attr(lnL, "hessian") <- bdiag(- 1 / sigma ^ 2 * crossprod(X2),
-                                      - 3 * sum( (y - bX2) ^ 2) / sigma ^ 4 + 1 / sigma ^ 2)
+        attr(lnL, "hessian") <- bdiag(- 1 / sigma ^ 2 * crossprod(X2[y > 0, ]),
+                                      - 3 * sum( (y - bX2)[y > 0] ^ 2) / sigma ^ 4 + 1 / sigma ^ 2)
+        attr(lnL, "hessian") <- rbind(cbind( - 1 / sigma ^ 2 * crossprod(X2[y > 0, ]), - 2 * apply((resid * X2)[y > 0, ], 2, sum)),
+                                      c(- 2 * apply((resid * X2)[y > 0, ], 2, sum), 1 / sigma ^ 2 - 3 * sum(resid[y > 0] ^ 2)))
+#        attr(lnL, "hessian") <- bdiag(- 1 / sigma ^ 2 * crossprod(X2[y > 0, ]), 1 / sigma ^ 2 - 3 * sum(resid[y > 0] ^ 2))
+        
+        
         lnL
     }
 
@@ -175,7 +179,7 @@ two_parts_model <- function(X1, X2, y, dist = NULL, start = NULL, check_gradient
         lnL_sigma_sigma <- sum(1 - 3 * resid ^ 2 / sigma ^ 2 - dmu * bX2 / sigma ^ 2 - 2 * mu * bX2 / sigma) / sigma ^ 2
         attr(lnL, "gradient") <- cbind(lnL_beta * X2, sigma = lnL_sigma) * (y > 0)
         attr(lnL, "hessian") <- rbind(cbind(lnL_beta_beta * crossprod(X2), lnL_beta_sigma),
-                                      lnL_beta_sigma, lnL_sigma_sigma)
+                                      c(lnL_beta_sigma, lnL_sigma_sigma))
         lnL
     }
 
@@ -195,7 +199,7 @@ two_parts_model <- function(X1, X2, y, dist = NULL, start = NULL, check_gradient
                                         c(lnL_gamma_theta, lnL_theta_theta))
         lnL
     }
-        
+
     
     if (dist == "tn") f_second <- function(x) lnl.tn(x)
     if (dist == "ln") f_second <- function(x) lnl.ln(x)
@@ -223,19 +227,20 @@ two_parts_model <- function(X1, X2, y, dist = NULL, start = NULL, check_gradient
 
     first <- glm(y != 0 ~ X1 - 1, family = binomial(link = "probit"))
     coefs_first <- coef(first)
+    names(coefs_first) <- paste("h1.", colnames(X1), sep = "")
     first <- lnl.probit(coefs_first)
     L.null <- as.numeric(first)
     lp <- as.numeric(X1 %*% coefs_first)
     gradient_first <- attr(first, "gradient")
     hessian_first <- attr(first, "hessian")
-    
     # Computation of the likelihood for positive observations for log-normal distribution
 
     if (dist == "ln"){
         second <- lm(log(yp) ~ X2[y > 0, ] - 1)
         beta2 <- coef(second)
         sigma <- sqrt(deviance(second) / nobs(second))
-        coefs_second <- c(beta2, sigma = sigma)
+        coefs_second <- c(beta2, sigma)
+        names(coefs_second) <- c(paste("h2.", colnames(X2), sep = ""), "sigma")
     }
     else{
         if (dist == "tn"){
@@ -247,14 +252,14 @@ two_parts_model <- function(X1, X2, y, dist = NULL, start = NULL, check_gradient
         
         if (dist == "bc") second <- boxcoxreg(yp ~ X2[y > 0, ] - 1, method = "bhhh", print.level = 0)
         coefs_second <- coef(second)
+        names(coefs_second) <- c(paste("h2.", colnames(X2), sep = ""), sigma = sigma)        
     }
     gradient_second <- attr(f_second(coefs_second), "gradient")
     hessian_second <- attr(f_second(coefs_second), "hessian")
     gradient <- cbind(gradient_first, gradient_second)
-    
+    colnames(gradient) <- names(c(coefs_first, coefs_second))
     L.pos <- logLik(second)
     
-
     coef.names <- list(h1    = colnames(X1),
                        h2    = colnames(X2),
                        h3    = NULL,
@@ -264,7 +269,11 @@ two_parts_model <- function(X1, X2, y, dist = NULL, start = NULL, check_gradient
                        tr    = NULL,
                        pos   = NULL)
     if (dist == "bc") coef.names$tr <- "tr"
-    logLik <- structure(sum(L.null) + sum(L.pos), df = length(coef), nobs = length(y), class = "logLik")
+    logLik <- lnl_two_parts(c(coefs_first, coefs_second))
+    logLik <- structure(as.numeric(logLik), df = length(c(coefs_first, coefs_second)),
+                        parts = attr(logLik, "parts"),
+                        nobs = length(y), class = "logLik")
+
     result <- list(coefficients = c(coefs_first, coefs_second), 
                    fitted.values = NULL,
                    logLik = logLik,
@@ -275,6 +284,7 @@ two_parts_model <- function(X1, X2, y, dist = NULL, start = NULL, check_gradient
                    coef.names = coef.names,
                    call = NULL
                    )
+    result$dpar <- - sum(diag(solve(result$hessian, crossprod(result$gradient))))    
     class(result) <- c("mhurdle","maxLik")
     result
 }

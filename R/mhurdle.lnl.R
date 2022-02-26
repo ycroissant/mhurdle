@@ -285,6 +285,8 @@ mhurdle.lnl <- function(param, X1, X2, X3, X4, y, gradient = FALSE,
 
         if (h3){
             # derivative of T(Phi3 y) with bX3
+            odist <- dist
+            if (dist == "ln2" && mu == 0) dist <- "ln"
             Ty_bX3 <- switch(dist,
                              "ln" = mills(bX3),
                              "ln2" = y * phi3 / (mu + y * Phi3),
@@ -311,6 +313,7 @@ mhurdle.lnl <- function(param, X1, X2, X3, X4, y, gradient = FALSE,
                               sqrt(1 - rho[3] ^ 2) ) / Pr13$f +
                             lnJ_bX3
                 )
+            dist <- odist
             gradi <- cbind(gradi, lnL_beta3 * X3)
         }
         
@@ -445,6 +448,7 @@ mhurdle.lnl <- function(param, X1, X2, X3, X4, y, gradient = FALSE,
         if (any(is.na(gradi))) gradi[is.na(gradi)] <- 0
         # for ln2, when mu = 0, lnL_mu is 0 / 0 = 0 for y = 0, the NaN
         # is correctly replaced by 0
+        colnames(gradi) <- names(param)
         attr(lnL, "gradient") <- gradi
     }
     

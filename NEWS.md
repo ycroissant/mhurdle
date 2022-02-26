@@ -1,3 +1,10 @@
+Changes since version 1.3-0
+  * for robust estimations (the default), the model is now internally
+    updated with robust = FALSE and iterlim = 0 so that the gradient
+    and the hessian of the structural model are computed 
+  * interface to sandwich (estfun and bread methods) and to nonnest2
+    (llcont method)
+
 Changes since version 1.2-0
 
   * predict(object, newdata = data) where data is the data.frame used
@@ -11,7 +18,6 @@ Changes since version 1.1-7
 
   * the EV formula is fixed for the log-normal model
   * improved version of the texreg method
-
 
 Changes since version 0.1-4
 

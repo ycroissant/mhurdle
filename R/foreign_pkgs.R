@@ -1,3 +1,19 @@
+#' @importFrom sandwich estfun
+#' @export
+sandwich::estfun
+
+#' @importFrom sandwich bread
+#' @export
+sandwich::bread
+
+#' @importFrom sandwich meat
+#' @export
+sandwich::meat
+
+#' @importFrom nonnest2 llcont
+#' @export
+nonnest2::llcont
+
 #' @importFrom generics glance
 #' @export
 generics::glance
@@ -6,11 +22,9 @@ generics::glance
 #' @export
 generics::tidy
 
-
 #' @importFrom prediction prediction
 #' @export
 prediction::prediction
-
 
 #' @importFrom margins margins
 #' @export
@@ -107,82 +121,31 @@ prediction.mhurdle <- function (model, data = find_data(model, parent.frame()), 
 }
 
 
-## old.prediction.mhurdle <- function (model, data = find_data(model, parent.frame()), at = NULL, 
-##                                type = "response", vcov = stats::vcov(model), calculate_se = FALSE, 
-##                                ...){
-##     type <- match.arg(type)
-##     data <- data
-##     if (missing(data) || is.null(data)) {
-##         if (isTRUE(calculate_se)) {
-##             pred <- predict(model, type = type, se.fit = TRUE, 
-##                 ...)
-##             pred <- make_data_frame(fitted = pred[["fit"]], se.fitted = pred[["se.fit"]])
-##         }
-##         else {
-##             pred <- predict(model, type = type, se.fit = FALSE, 
-##                 ...)
-##             pred <- make_data_frame(fitted = pred, se.fitted = rep(NA_real_, 
-##                                                                    length(pred)))
-##         }
-##     }
-##     else {
-##         cat("ICI\n")
-##         model[["model"]] <- NULL
-##         datalist <- build_datalist(data, at = at, as.data.frame = TRUE)
-##         at_specification <- attr(datalist, "at_specification")
-##         if (isTRUE(calculate_se)) {
-##             tmp <- predict(model, newdata = datalist, type = type, 
-##                 se.fit = TRUE, ...)
-##             pred <- make_data_frame(datalist, fitted = tmp[["fit"]], 
-##                 se.fitted = tmp[["se.fit"]])
-##         }
-##         else {
-##             tmp <- predict(model, newdata = datalist, type = type, 
-##                            se.fit = FALSE, ...)
-##             print(head(tmp))
-##             pred <- make_data_frame(datalist, fitted = tmp, se.fitted = rep(NA_real_, 
-##                                                                             nrow(datalist)))
-##             print(head(pred));stop()
-##         }
-##     }
-##     if (isTRUE(calculate_se)) {
-##         J <- NULL
-##         model_terms <- delete.response(terms(model))
-##         if (is.null(at)) {
-##             model_frame <- model.frame(model_terms, data, na.action = na.pass, 
-##                 xlev = model$xlevels)
-##             model_mat <- model.matrix(model_terms, model_frame, 
-##                 contrasts.arg = model$contrasts)
-##             means_for_prediction <- colMeans(model_mat)
-##             vc <- (means_for_prediction %*% vcov %*% means_for_prediction)[1L, 
-##                 1L, drop = TRUE]
-##         }
-##         else {
-##             datalist <- build_datalist(data, at = at, as.data.frame = FALSE)
-##             vc <- unlist(lapply(datalist, function(one) {
-##                 model_frame <- model.frame(model_terms, one, 
-##                   na.action = na.pass, xlev = model$xlevels)
-##                 model_mat <- model.matrix(model_terms, model_frame, 
-##                   contrasts.arg = model$contrasts)
-##                 means_for_prediction <- colMeans(model_mat)
-##                 means_for_prediction %*% vcov %*% means_for_prediction
-##             }))
-##         }
-##     }
-##     else {
-##         J <- NULL
-##         if (length(at)) {
-##             vc <- rep(NA_real_, nrow(at_specification))
-##         }
-##         else {
-##             vc <- NA_real_
-##         }
-##     }
-##     structure(pred, class = c("prediction", "data.frame"), at = if (is.null(at)) 
-##         at
-##     else at_specification, type = type, call = if ("call" %in% 
-##         names(model)) 
-##         model[["call"]]
-##     else NULL, model_class = class(model), row.names = seq_len(nrow(pred)), 
-##         vcov = vc, jacobian = J, weighted = FALSE)
-## }
+#' sandwich and nonnest2's methods
+#'
+#' Methods to compute extract different features of the log-likelihood
+#' function
+#'
+#' @name sandwich_nonnest2
+#' @param x a model fitted with mhurdle
+#' @param ... further arguments, currently unused
+#' @details `mhurdle` exports the `sandwich::estfun`,
+#'     `sandwich::bread` and `nonnest2::llcont` functions. The
+#'     specific method provided for `mhurdle` objects are used in the
+#'     code to extract different features of the log-likelihood
+NULL
+
+#' @rdname sandwich_nonnest2
+#' @method estfun mhurdle
+#' @export
+estfun.mhurdle <- function(x, ...) x$gradient
+
+#' @rdname sandwich_nonnest2
+#' @method bread mhurdle
+#' @export
+bread.mhurdle <- function(x, ...) vcov(x) * nobs(x)
+
+#' @rdname sandwich_nonnest2
+#' @method llcont mhurdle
+#' @export
+llcont.mhurdle <- function(x, ...) as.numeric(x$logLik)

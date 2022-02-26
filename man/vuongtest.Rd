@@ -8,7 +8,7 @@ vuongtest(
   x,
   y,
   type = c("non-nested", "nested", "overlapping"),
-  hyp = FALSE,
+  true_model = FALSE,
   variance = c("centered", "uncentered"),
   matrix = c("large", "reduced")
 )
@@ -20,7 +20,7 @@ vuongtest(
 
 \item{type}{the kind of test to be computed,}
 
-\item{hyp}{a boolean, \code{TRUE} if one of the models is asumed to be the
+\item{true_model}{a boolean, \code{TRUE} if one of the models is asumed to be the
 true model,}
 
 \item{variance}{the variance is estimated using the \code{centered} or

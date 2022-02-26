@@ -128,7 +128,6 @@ mhurdle <- function(formula, data, subset, weights, na.action,
     posT <- as.list(cl) == "T" ; posF <- as.list(cl) == "F"
     cl[posT] <- TRUE           ; cl[posF] <- FALSE
     dist <- match.arg(dist)
-
     if (dist == "ln" & h2) dist <- "ln2"
     if (dist == "n" & ! h2) dist <- "tn"
     if (dist == "bc" & h2) dist <- "bc2"
@@ -194,19 +193,36 @@ mhurdle <- function(formula, data, subset, weights, na.action,
             result$call <- cl
             return(result)
         }
-        result$naive <- NULL#naive
+
+        P0 <- mean(y == 0)
+        m <- mean(log(y[y > 0]))
+        s2 <- mean( log(y[y > 0]) ^ 2) - m ^ 2
+        parts <- c(log(P0), log(1 - P0), log(1 - P0) - m - 1 / 2 * log(s2) - 1 / 2 * log(2 * pi) - 1 /2)
+        parts <- parts * c(P0, 1 - P0, 1 - P0) * N
+        logLik.naive <- structure((parts[1] + parts[3]), nobs = length(y),
+                                  parts = parts, 
+                                  df = 3, class = "logLik")
+        naive <- list(logLik = logLik.naive)
+
+        lnL1c <- attr( naive$logLik, "parts")[1] + attr( naive$logLik, "parts")[2]
+        lnL1u <- attr(result$logLik, "parts")[1] + attr(result$logLik, "parts")[2]
+        lnL2c <- attr( naive$logLik, "parts")[3] - attr( naive$logLik, "parts")[2]
+        lnL2u <- attr(result$logLik, "parts")[3] - attr(result$logLik, "parts")[2]
+
+        R1 <- 1 - (lnL1c / lnL1u) ^ (2 / N * lnL1c)
+        R2old <- 1 - (exp(lnL2c) / exp(lnL2u)) ^ (2 / (N * (1 - P0)))
+        R2 <- 1 - exp(- 2 * (lnL2u - lnL2c) / (N * (1 - P0)))
+        result$R2 <- c(null = unname(R1), positive = unname(R2), old = unname(R2old))
+        result$naive <- naive
         result$call <- cl
         result$model <- mf
         result$formula <- formula
-        result$R2 <- c(null = NA, positive = NA)
         result$terms <- .terms
         return(result)
     }
-
     # 5. Compute the starting values if not provided (use the linear
     # specification as the starting value for ihs and the log-linear
     # specification for Box-Cox)
-
     if (is.null(start)){
         dist.start <- dist
         if (dist %in% c("bc", "bc2", "ln2")) dist.start <- "ln"
@@ -248,6 +264,7 @@ mhurdle <- function(formula, data, subset, weights, na.action,
                           fitted = fitted,
                           check_gradient = check_gradient,
                           ...)
+
     if (check_gradient){
         result$call <- cl
         return(result)
@@ -255,7 +272,7 @@ mhurdle <- function(formula, data, subset, weights, na.action,
     
     # 3. Compute the naive model
 
-    Pnull <- mean(y == 0)
+    P0 <- mean(y == 0)
     dist.naive <- dist
     if (dist %in% c("ihs")) dist.naive <- "n"
     if (dist %in% c("bc", "bc2", "ln2")) dist.naive <- "ln"
@@ -268,16 +285,75 @@ mhurdle <- function(formula, data, subset, weights, na.action,
     }
 
     start.naive <- c(rep(0.1, 1 + h1 + h3), 1)
-    moments <- c(Pnull, Ec, Vc)
+    moments <- c(P0, Ec, Vc)
     naive <- maxLik::maxLik(lnl.naive, start = start.naive,
                     dist = dist.naive, moments = moments,
                     h1 = h1, h3 = h3)
     coef.naive <- naive$est
-    parts <- attr(naive$max, "parts") * c(Pnull, 1 - Pnull, 1 - Pnull) * N
+    parts <- attr(naive$max, "parts") * c(P0, 1 - P0, 1 - P0) * N
     logLik.naive <- structure(as.numeric(naive$max) * N, nobs = length(y),
                               parts = parts, 
                               df = length(coef.naive), class = "logLik")
-    naive <- list(coefficients = coef.naive, logLik = logLik.naive, code = naive$code)
+    naive <- list(logLik = logLik.naive)
+    # QDF for log-normal models
+
+#    cat("sans h2\n")
+    if (dist == "ln"){
+        P0 <- mean(y == 0)
+        m <- mean(log(y[y > 0]))
+        s2 <- mean( log(y[y > 0]) ^ 2) - m ^ 2
+        parts <- c(log(P0), log(1 - P0), log(1 - P0) - m - 1 / 2 * log(s2) - 1 / 2 * log(2 * pi) - 1 /2)
+        parts <- parts * c(P0, 1 - P0, 1 - P0) * N
+        logLik.naive <- structure((parts[1] + parts[3]), nobs = length(y),
+                                  parts = parts, 
+                                  df = 3, class = "logLik")
+        naive <- list(logLik = logLik.naive)
+    }
+
+    ## cat("avec h2\n")
+    ## param <- c(Np / N, mean(log(y[y > 0])), sd(log(y[y > 0])), 0.5)
+    ## No <- sum(y == 0)
+    ## Np <- sum(y > 0)
+    ## f <- function(param){
+    ##     Phio <- param[1]
+    ##     m <- param[2]
+    ##     sig <- param[3]
+    ##     a <- param[4]
+    ##     v <- No * log(1 - Phio * pnorm((m - log(a)) / sig)) + Np * (log(Phio) - log(sig) - 1 / 2  * log(2 * pi)) -
+    ##         sum( log(y[y > 0] + a) + (log(y[y > 0] + a) - m) ^ 2 / (2 * sig ^ 2))
+    ##     v
+    ## }
+    
+    ## print(maxLik::maxLik(f, start = param, method = "bfgs"))
+    
+    ## g <- function(param){
+    ##     m <- param[1]
+    ##     sig <- param[2]
+    ##     a <- param[3]
+    ##     Pp <- Np / N
+    ##         v <- No * log(1 - Pp) + Np * log(Pp) +
+    ##             Np * (- pnorm((m - log(a)) / sig, log.p = TRUE) - log(sig) - 1 / 2  * log(2 * pi)) -
+    ##             sum( log(y[y > 0] + a) + (log(y[y > 0] + a) - m) ^ 2 / (2 * sig ^ 2))
+    ##     v
+    ## }
+
+    ## print(maxLik::maxLik(g, start = param[-1], method = "bfgs"))
+
+    ## a <- 0.00000001
+    ## h <- function(param){
+    ##     m <- param[1]
+    ##     sig <- param[2]
+    ##     Pp <- Np / N
+    ##         v <- No * log(1 - Pp) + Np * log(Pp) +
+    ##             Np * (- pnorm((m - log(a)) / sig, log.p = TRUE) - log(sig) - 1 / 2  * log(2 * pi)) -
+    ##             sum( log(y[y > 0] + a) + (log(y[y > 0] + a) - m) ^ 2 / (2 * sig ^ 2))
+    ##     v
+    ## }
+    ## print(maxLik::maxLik(h, start = param[2:3], method = "bfgs"))
+
+    ## stop()
+
+
 
     result$naive <- naive
     result$call <- cl
@@ -288,15 +364,22 @@ mhurdle <- function(formula, data, subset, weights, na.action,
     
     lnL1c <- attr( naive$logLik, "parts")[1] + attr( naive$logLik, "parts")[2]
     lnL1u <- attr(result$logLik, "parts")[1] + attr(result$logLik, "parts")[2]
-
     lnL2c <- attr( naive$logLik, "parts")[3] - attr( naive$logLik, "parts")[2]
     lnL2u <- attr(result$logLik, "parts")[3] - attr(result$logLik, "parts")[2]
 
     R1 <- 1 - (lnL1c / lnL1u) ^ (2 / N * lnL1c)
-    R2old <- 1 - (exp(lnL2c) / exp(lnL2u)) ^ (2 / (N * (1 - Pnull)))
-    R2 <- 1 - exp(- 2 * (lnL2u - lnL2c) / (N * (1 - Pnull)))
+    R2old <- 1 - (exp(lnL2c) / exp(lnL2u)) ^ (2 / (N * (1 - P0)))
+    R2 <- 1 - exp(- 2 * (lnL2u - lnL2c) / (N * (1 - P0)))
     result$R2 <- c(null = unname(R1), positive = unname(R2), old = unname(R2old))
-    result$dpar <- - sum(diag(solve(result$hessian, crossprod(result$gradient))))
+
+    if (result$type_hessian == "neg_definite")
+        result$dpar <- - sum(diag(solve(result$hessian, crossprod(result$gradient))))
+    if (robust){
+        result <- update(result, start = coef(result), iterlim = 0, robust = FALSE)
+        result$call$robust <- TRUE
+        result$call$iterlim <- NULL
+        result$call$start <- NULL
+    }
     result
 }
 
@@ -341,12 +424,17 @@ mhurdle.fit <- function(start, X1, X2, X3, X4, y, gradient = FALSE, fit = FALSE,
                                      robust = robust)
 
     if (check_gradient) return(compare_gradient(f, start))
-
     maxl <- maxLik::maxLik(f, start = start, control = list(lambdatol = 1E-20),  ...)
     nb.iter <- maxl$iterations
     convergence.OK <- maxl$code <= 2
     coefficients <- maxl$estimate
 
+    h <- function(param) sum(mhurdle.lnl(param, X1 = X1, X2 = X2, X3 = X3, X4 = X4, y = y,
+                                     gradient = FALSE, fitted = FALSE,
+                                     dist = dist, corr = corr,
+                                     robust = FALSE))
+#print(robust)
+#    H <- numDeriv::hessian(h, coefficients)
     if (fitted) fitted.values <- attr(mhurdle.lnl(coefficients, X1 = X1, X2 = X2, X3 = X3, X4 = X4, y = y,
                                                   gradient = FALSE, fitted = TRUE, robust = robust,
                                                   dist = dist, corr = corr), "fitted")
@@ -360,14 +448,30 @@ mhurdle.fit <- function(start, X1, X2, X3, X4, y, gradient = FALSE, fit = FALSE,
                         parts = attr(logLik, "parts"),
                         nobs = length(y), class = "logLik")
     hessian <- maxl$hessian
+
     ev <- eigen(- hessian)$values
-    if (any(ev < 0)) cat("The hessian is not negative definite\n")
-    else (if (any(abs(ev) < 1E-07)) cat("the hessian is singular\n"))
+
+    type_hessian <- "neg_definite"
+    if (any(is.complex(ev))){
+        type_hessian <- "complex"
+    } else {
+        if (any(ev < 0)){
+            type_hessian <- "not_neg_definite"
+        } else {
+            if (any(ev < 1E-07)){
+                type_hessian <- "singular"
+            }
+        }
+    }
     opg <- crossprod(gradi)
-    elaps.time <- proc.time() - start.time
+    ev_opg <- eigen(opg)$values
     
-#    eps <- with(maxl, gradient %*% solve(- hessian) %*% gradient)
-    eps <- with(maxl, gradient %*% solve(opg) %*% gradient)
+    elaps.time <- proc.time() - start.time
+
+    if (type_hessian == "neg_definite") information <- - hessian else information <- opg
+
+#    eps <- drop(crossprod(maxl$gradient, solve(information, maxl$gradient)))
+    eps <- NA
     est.stat <- list(elaps.time = elaps.time,
                      nb.iter = nb.iter,
                      eps = eps,
@@ -376,21 +480,39 @@ mhurdle.fit <- function(start, X1, X2, X3, X4, y, gradient = FALSE, fit = FALSE,
                      )
     class(est.stat) <- "est.stat"
     gtheta <- rep(1, length(coefficients))
+    ## if (robust){
+    ##     if (corr){
+    ##         poscor <- sub.mhurdle(coef.names, "corr")
+    ##         gtheta[poscor] <- 2 / pi / (1 + coefficients[poscor] ^ 2)
+    ##         coefficients[poscor] <- atan(coefficients[poscor]) * 2 / pi
+    ##     }
+    ##     if (dist %in% c("bc2", "ln2")){
+    ##         posmu <- sub.mhurdle(coef.names, "pos")
+    ##         gtheta[posmu] <- exp(coefficients[posmu])
+    ##         coefficients[posmu] <- exp(coefficients[posmu])
+    ##     }
+    ##     possd <- sub.mhurdle(coef.names, "sd")
+    ##     gtheta[possd] <-  exp(coefficients[possd])
+    ##     coefficients[possd] <- exp(coefficients[possd])
+    ##     print(gtheta)
+    ##     g1 <- apply(gradi, 2, sum)
+    ##     gradi <- t(t(gradi) / gtheta)
+    ##     g2 <- apply(gradi, 2, sum)
+    ##     print(cbind(g1, g2))
+    ## }
     if (robust){
         if (corr){
             poscor <- sub.mhurdle(coef.names, "corr")
-            gtheta[poscor] <- 2 / pi / (1 + coefficients[poscor] ^ 2)
             coefficients[poscor] <- atan(coefficients[poscor]) * 2 / pi
         }
         if (dist %in% c("bc2", "ln2")){
             posmu <- sub.mhurdle(coef.names, "pos")
-            gtheta[posmu] <- exp(coefficients[posmu])
             coefficients[posmu] <- exp(coefficients[posmu])
         }
         possd <- sub.mhurdle(coef.names, "sd")
-        gtheta[possd] <- exp(coefficients[possd])
         coefficients[possd] <- exp(coefficients[possd])
     }
+
     result <- list(coefficients  = coefficients,
                    fitted.values = fitted.values,
                    logLik        = logLik,
@@ -403,11 +525,11 @@ mhurdle.fit <- function(start, X1, X2, X3, X4, y, gradient = FALSE, fit = FALSE,
                    coef.names    = coef.names,
                    call          = NULL,
                    est.stat      = est.stat,
-                   naive         = NULL
+                   naive         = NULL,
+                   type_hessian  = type_hessian
                    )
     class(result) <- c("mhurdle", class(result))
     result
-    
 }
 
 

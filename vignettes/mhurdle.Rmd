@@ -1,6 +1,9 @@
 ---
 title: "Introduction to mhurdle"
-output: bookdown::pdf_document2
+output: 
+  bookdown::pdf_document2:
+    keep_tex: yes
+    extra_dependencies: ["xcolor"]
 bibliography: ../inst/REFERENCES.bib
 vignette: >
   %\VignetteIndexEntry{Introduction to mhurdle}
@@ -1653,34 +1656,38 @@ L111I2 <- update(L111I, start = coef(L111I), robust = FALSE)
 
 The results are presented in table \@ref(tab:estimations).
 
-```{r label = tabmodels, include = FALSE, eval = TRUE}
+```{r label = estimations, echo = FALSE, eval = TRUE, results = 'asis'}
 models <- list(L110D = L110D, L011D = L011D, 
                L101D = L101D, L111D = L111D, L111I = L111I)
-coefs <- unique(Reduce("c", lapply(models, function(x) names(coef(x)))))
-coefs1 <- grep("h1", coefs)
-coefs2 <- grep("h2", coefs)
-coefs3 <- grep("h3", coefs)
-coefso <- (1:length(coefs))[-c (coefs1, coefs2, coefs3)]
-custcoefs <- coefs
-custcoefs[coefso] <- c("$\\sigma$", "$\\rho_{12}$", "$\\alpha$", "$\\rho_{23}$", "$\\rho_{13}$")
-coefs.h <- grep("h.\\.", coefs)
-#custcoefs[coefs.h] <- substring(custcoefs[coefs.h], 4, 1E4)
-groups <- list("**Hurdle 1**" = 1:length(coefs1),
-               "**Hurlde 2**" = (length(coefs1)+1):(length(coefs1) + length(coefs2)),
-               "**Hurdle 3**"= (length(coefs1)+length(coefs2)+1):(length(coefs1) + length(coefs2) + length(coefs3)),
-               "**Others**" = (length(coefs1) + length(coefs2) + length(coefs3) + 1) : (length(coefs1) + length(coefs2) + length(coefs3) + length(coefso)))
-#coeflabels <- gsub("h[1-3]\\.(\\w*)", "\\1", coefs)
-``` 
+coefs <- unique(names(Reduce("c", lapply(models, coef))))
+o_h1 <- grep("h1", coefs, value = TRUE)
+o_h2 <- grep("h2", coefs, value = TRUE)
+o_h3 <- grep("h3", coefs, value = TRUE)
+n_h1 <- substr(o_h1, 4, 100)
+n_h2 <- paste(substr(o_h2, 4, 100), " ", sep = "")
+n_h3 <- paste(substr(o_h3, 4, 100), "  ", sep = "")
+mps <- c(n_h1, n_h2, n_h3,"$\\sigma$", "$\\alpha$", "$\\rho_{12}$", "$\\rho_{13}$", "$\\rho_{23}$")
+names(mps) <- c(o_h1, o_h2, o_h3, "sd.sd", "pos", "corr12", "corr13", "corr23")
 
-```{r estimations, echo = FALSE, results = 'asis', eval = TRUE}
-texreg::texreg(models, reorder.coef = c(coefs1, coefs2, coefs3, coefso), 
-       custom.coef.names = custcoefs,#[c(coefs1, coefs2, coefs3, coefso)],
-       caption = "Estimation of cencored models for the fees and admissions good",
-       label = "tab:estimations",
-       groups = groups
-       ) 
-``` 
+gm <- tibble::tribble(
+    ~raw,        ~clean,          ~fmt,
+    "nobs",      "$N$",             0,
+    "dpar", "degree of par.",       1,
+    "nobs.zero", "$N_o$",           0,
+    "nobs.pos", "$N_+$",            0,
+    "R2.zero", "$R^2_o$",           3,
+    "R2.pos", "$R^2_+$",            3,
+    "logLik", "log likelihood",     1)
 
+v <- modelsummary::msummary(models,
+                       statistic = NULL, estimate = "{estimate} ({std.error})", fmt = 2,
+                       title = "Multiple hurdle regressions",
+                       coef_map = mps,
+                       gof_map = gm, escape = FALSE)
+v <- kableExtra::pack_rows(v, index = c(selection = 5, consumption = 2, expense = 5,
+                            "Miscellanous parameters" = 5, "Goodness of fit measures" = 5))
+v
+``` 
 
 ## Tests
 
@@ -1718,31 +1725,28 @@ Both tests don't reject the independence hypothesis at the 5\% level,
 especially the Vuong test, the p-values being respectively equal to
 `r pvlr` and `r pvvuong`.
 
-For non-nested models, one can use Vuong test, using the original
-version or the non-degenerate version of @SHI:15. For example,
+For non-nested models, one can use Vuong test.
+<!-- , using the original version or the non-degenerate version of @SHI:15.  -->
+For example,
 for the double-hurdles selection and ptobit models, the test is
 performed using:
 
-```{r label = vuongdh, results = 'hide'}
-ndvuongtest(L110D, L011D)
+```{r label = vuongdh, eval = FALSE}
+vuongtest(L110D, L011D)
 ``` 
 
 ```{r label hvuongunnested, include = FALSE}
-unnested <- ndvuongtest(L110D, L011D)
-stat <- as.numeric(round(unnested$trad$statistic, 3))
-pvaltrad <- round(unnested$trad$p.value, 3)
-pvalshi <- round(unnested$nd$p.value, 3)
+vt <- vuongtest(L110D, L011D)
+stat <- as.numeric(round(vt$statistic, 3))
+pvaltrad <- round(vt$p.value, 3)
 ``` 
 
 The statistic is `r stat`.  Its negative sign indicate that the
 p-tobit model better fits the data compared to the selection
 model. The difference is significant at the 5\% level, as the
-(two-ways) p-values equal `r pvaltrad` for the traditional Vuong
-test and `r pvalshi` for the non-degenerate version proposed by
-@SHI:15.
-
-which leads to the conclusion that the ptobit model is significantly
-better than the selection model.
+(two-ways) p-values equal `r pvaltrad`, which leads to the conclusion
+that the ptobit model is significantly better than the selection
+model.
 
 The parcimony principal leads to the selection of the ptobit
 double-hurdle model, as it is not significantly worst than the more
