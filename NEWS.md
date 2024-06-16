@@ -1,39 +1,43 @@
-Changes since version 1.3-0
-  * for robust estimations (the default), the model is now internally
-    updated with robust = FALSE and iterlim = 0 so that the gradient
-    and the hessian of the structural model are computed 
-  * interface to sandwich (estfun and bread methods) and to nonnest2
-    (llcont method)
+# mhurdle 1.3-1
 
-Changes since version 1.2-0
+- For robust estimations (the default), the model is now internally
+  updated with `robust = FALSE` and `iterlim = 0` so that the gradient
+  and the hessian of the structural model are computed.
+- Interface to `sandwich` (`estfun` and `bread` methods) and to `nonnest2`
+  (`llcont` method).
 
-  * predict(object, newdata = data) where data is the data.frame used
-      to fit the model now returns the same as fitted(object) bug
-      fixed thanks to Achim Zeileis and Rebekka Topp
-  * interface with foreign packages (prediction, margins and
-      modelsummary)
-  * unit tests added
+# mhurdle 1.3-0
 
-Changes since version 1.1-7
+- `predict(object, newdata = data)` where `data` is the data frame used
+  to fit the model now returns the same as `fitted(object)`. Bug
+  fixed thanks to Achim Zeileis and Rebekka Topp.
+- Interface with foreign packages (`prediction`, `margins`, and
+  `modelsummary`).
+- Unit tests added.
 
-  * the EV formula is fixed for the log-normal model
-  * improved version of the texreg method
+# mhurdle 1.1-6
 
-Changes since version 0.1-4
+- The EV formula is fixed for the log-normal model.
+- Improved version of the `texreg` method.
 
-  * major revision for the code and the vignette ; bc and ihs
-    transformation, heteroscedasticity are introduced
+# mhurdle 1.0-1
 
-Changes since version 0.1-2 :
+- Major revision for the code and the vignette; bc and ihs
+  transformation, heteroscedasticity are introduced.
 
-  * minor changes of the vignette
+# mhurdle 0.1-3
 
-Changes since version 0.1-1 :
+- Minor changes of the vignette.
 
-  * major update of the whole code
-  * much improved vignette
+# mhurdle 0.1-2
+
+- Major update of the whole code.
+- Much improved vignette.
+
+# mhurdle 0.1-0
+
+- Some encoding problems in the vignette are fixed.
 	
-Changes since version 0.1-0 :
-	
-  * some encoding problems in the vignette are fixed
-	
+# mhurdle 0.1-0
+
+- First CRAN release.
