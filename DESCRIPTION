@@ -7,7 +7,7 @@ Authors@R: c(person("Yves", "Croissant", role = c("aut", "cre"), email = "yves.c
              person("Stephane", "Hoareau", role = "aut", email = "sjlhoaro@univ-reunion.fr"))
 Depends: R (>= 2.10)
 Imports: Formula, truncreg, maxLik, survival, Rdpack, prediction, margins, generics, numDeriv, sandwich, nonnest2, CompQuadForm
-Suggests: knitr, rmarkdown, lmtest, bookdown, testthat, modelsummary, tibble
+Suggests: knitr, rmarkdown, lmtest, bookdown, testthat, modelsummary, tibble, broom
 Description: Estimation of models with dependent variable left-censored at zero.
              Null values may be caused by a selection process
 	     Cragg (1971) <doi:10.2307/1909582>, insufficient resources
