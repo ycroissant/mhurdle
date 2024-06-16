@@ -25,8 +25,7 @@ log2 <- function(x) ifelse(x > 0,log(x), 0)
 mills <- function(x) exp(dnorm(x, log = TRUE) - pnorm(x, log.p = TRUE))
 dmills <- function(x) - mills(x) * (x + mills(x))
 
-# a function to construct block-diagonal matrix (can't remember from
-# which package it is borrowed)
+# a function to construct block-diagonal matrix (copied from plm:::bdiag)
 bdiag <- function(...){
   if (nargs() == 1)
     x <- as.list(...)
