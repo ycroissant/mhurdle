@@ -1684,8 +1684,8 @@ v <- modelsummary::msummary(models,
                        title = "Multiple hurdle regressions",
                        coef_map = mps,
                        gof_map = gm, escape = FALSE)
-v <- kableExtra::pack_rows(v, index = c(selection = 5, consumption = 2, expense = 5,
-                            "Miscellanous parameters" = 5, "Goodness of fit measures" = 5))
+## v <- kableExtra::pack_rows(v, index = c(selection = 5, consumption = 2, expense = 5,
+##                             "Miscellanous parameters" = 5, "Goodness of fit measures" = 5))
 v
 ``` 
 
