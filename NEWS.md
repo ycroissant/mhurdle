@@ -1,5 +1,7 @@
 # mhurdle 1.3-1
 
+- the modelsummary table is removed as it doesn't pass crans's checks
+
 - For robust estimations (the default), the model is now internally
   updated with `robust = FALSE` and `iterlim = 0` so that the gradient
   and the hessian of the structural model are computed.

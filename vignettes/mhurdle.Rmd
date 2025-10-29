@@ -1656,38 +1656,38 @@ L111I2 <- update(L111I, start = coef(L111I), robust = FALSE)
 
 The results are presented in table \@ref(tab:estimations).
 
-```{r label = estimations, echo = FALSE, eval = TRUE, results = 'asis'}
-models <- list(L110D = L110D, L011D = L011D, 
-               L101D = L101D, L111D = L111D, L111I = L111I)
-coefs <- unique(names(Reduce("c", lapply(models, coef))))
-o_h1 <- grep("h1", coefs, value = TRUE)
-o_h2 <- grep("h2", coefs, value = TRUE)
-o_h3 <- grep("h3", coefs, value = TRUE)
-n_h1 <- substr(o_h1, 4, 100)
-n_h2 <- paste(substr(o_h2, 4, 100), " ", sep = "")
-n_h3 <- paste(substr(o_h3, 4, 100), "  ", sep = "")
-mps <- c(n_h1, n_h2, n_h3,"$\\sigma$", "$\\alpha$", "$\\rho_{12}$", "$\\rho_{13}$", "$\\rho_{23}$")
-names(mps) <- c(o_h1, o_h2, o_h3, "sd.sd", "pos", "corr12", "corr13", "corr23")
+<!-- ```{r label = estimations, echo = FALSE, eval = TRUE, results = 'asis'} -->
+<!-- models <- list(L110D = L110D, L011D = L011D,  -->
+<!--                L101D = L101D, L111D = L111D, L111I = L111I) -->
+<!-- coefs <- unique(names(Reduce("c", lapply(models, coef)))) -->
+<!-- o_h1 <- grep("h1", coefs, value = TRUE) -->
+<!-- o_h2 <- grep("h2", coefs, value = TRUE) -->
+<!-- o_h3 <- grep("h3", coefs, value = TRUE) -->
+<!-- n_h1 <- substr(o_h1, 4, 100) -->
+<!-- n_h2 <- paste(substr(o_h2, 4, 100), " ", sep = "") -->
+<!-- n_h3 <- paste(substr(o_h3, 4, 100), "  ", sep = "") -->
+<!-- mps <- c(n_h1, n_h2, n_h3,"$\\sigma$", "$\\alpha$", "$\\rho_{12}$", "$\\rho_{13}$", "$\\rho_{23}$") -->
+<!-- names(mps) <- c(o_h1, o_h2, o_h3, "sd.sd", "pos", "corr12", "corr13", "corr23") -->
 
-gm <- tibble::tribble(
-    ~raw,        ~clean,          ~fmt,
-    "nobs",      "$N$",             0,
-    "dpar", "degree of par.",       1,
-    "nobs.zero", "$N_o$",           0,
-    "nobs.pos", "$N_+$",            0,
-    "R2.zero", "$R^2_o$",           3,
-    "R2.pos", "$R^2_+$",            3,
-    "logLik", "log likelihood",     1)
+<!-- gm <- tibble::tribble( -->
+<!--     ~raw,        ~clean,          ~fmt, -->
+<!--     "nobs",      "$N$",             0, -->
+<!--     "dpar", "degree of par.",       1, -->
+<!--     "nobs.zero", "$N_o$",           0, -->
+<!--     "nobs.pos", "$N_+$",            0, -->
+<!--     "R2.zero", "$R^2_o$",           3, -->
+<!--     "R2.pos", "$R^2_+$",            3, -->
+<!--     "logLik", "log likelihood",     1) -->
 
-v <- modelsummary::msummary(models,
-                       statistic = NULL, estimate = "{estimate} ({std.error})", fmt = 2,
-                       title = "Multiple hurdle regressions",
-                       coef_map = mps,
-                       gof_map = gm, escape = FALSE)
-## v <- kableExtra::pack_rows(v, index = c(selection = 5, consumption = 2, expense = 5,
-##                             "Miscellanous parameters" = 5, "Goodness of fit measures" = 5))
-v
-``` 
+<!-- v <- modelsummary::msummary(models, -->
+<!--                        statistic = NULL, estimate = "{estimate} ({std.error})", fmt = 2, -->
+<!--                        title = "Multiple hurdle regressions", -->
+<!--                        coef_map = mps, -->
+<!--                        gof_map = gm, escape = FALSE) -->
+<!-- ## v <- kableExtra::pack_rows(v, index = c(selection = 5, consumption = 2, expense = 5, -->
+<!-- ##                             "Miscellanous parameters" = 5, "Goodness of fit measures" = 5)) -->
+<!-- v -->
+<!-- ```  -->
 
 ## Tests
 
