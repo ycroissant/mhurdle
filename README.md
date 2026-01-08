@@ -18,7 +18,7 @@ because:
   that no expense is observed during the period of the survey.
 
 `mhurdle` provides a set of tools to estimate (by maximum likelihood)
- and test (using especially vuong test) this generalized hurdle model.
+ and test (using especially Vuong test) this generalized hurdle model.
 
 ## Installation
 
